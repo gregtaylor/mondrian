@@ -4,15 +4,17 @@
 // http://www.eclipse.org/legal/epl-v10.html.
 // You must accept the terms of that agreement to use this software.
 //
-// Copyright (C) 2007-2012 Pentaho and others
+// Copyright (C) 2007-2013 Pentaho and others
 // All Rights Reserved.
 */
 package mondrian.rolap;
 
 import mondrian.olap.Util;
+import mondrian.olap.Util.Functor1;
 import mondrian.server.Execution;
 import mondrian.server.Locus;
 import mondrian.server.monitor.*;
+import mondrian.server.monitor.SqlStatementEvent.Purpose;
 import mondrian.spi.Dialect;
 import mondrian.util.*;
 
@@ -82,6 +84,7 @@ public class SqlStatement {
     private final List<Accessor> accessors = new ArrayList<Accessor>();
     private State state = State.FRESH;
     private final long id;
+    private Functor1<Void, Statement> callback;
 
     /**
      * Creates a SqlStatement.
@@ -105,8 +108,10 @@ public class SqlStatement {
         int firstRowOrdinal,
         Locus locus,
         int resultSetType,
-        int resultSetConcurrency)
+        int resultSetConcurrency,
+        Util.Functor1<Void, Statement> callback)
     {
+        this.callback = callback;
         this.id = ID_GENERATOR.getAndIncrement();
         this.dataSource = dataSource;
         this.sql = sql;
@@ -127,8 +132,11 @@ public class SqlStatement {
         Counters.SQL_STATEMENT_EXECUTE_COUNT.incrementAndGet();
         Counters.SQL_STATEMENT_EXECUTING_IDS.add(id);
         String status = "failed";
-        Statement statement;
+        Statement statement = null;
         try {
+            // Check execution state
+            locus.execution.checkCancelOrTimeout();
+
             this.jdbcConnection = dataSource.getConnection();
             querySemaphore.enter();
             haveSemaphore = true;
@@ -154,8 +162,13 @@ public class SqlStatement {
             if (hook != null) {
                 hook.onExecuteQuery(sql);
             }
+
+            // Check execution state
+            locus.execution.checkCancelOrTimeout();
+
             startTimeNanos = System.nanoTime();
             startTimeMillis = System.currentTimeMillis();
+
             if (resultSetType < 0 || resultSetConcurrency < 0) {
                 statement = jdbcConnection.createStatement();
             } else {
@@ -168,7 +181,13 @@ public class SqlStatement {
             }
 
             // First make sure to register with the execution instance.
-            locus.execution.registerStatement(locus, statement);
+            if (getPurpose() != Purpose.CELL_SEGMENT) {
+                locus.execution.registerStatement(locus, statement);
+            } else {
+                if (callback != null) {
+                    callback.apply(statement);
+                }
+            }
 
             locus.getServer().getMonitor().sendEvent(
                 new SqlStatementStartEvent(
@@ -226,15 +245,13 @@ public class SqlStatement {
             }
         } catch (Throwable e) {
             status = ", failed (" + e + ")";
-            if (e instanceof Error) {
-                try {
-                    close();
-                } catch (Throwable ignore) {
-                }
-                throw (Error) e;
-            } else {
-                throw handle(e);
-            }
+
+            // This statement was leaked to us. It is our responsibility
+            // to dispose of it.
+            Util.close(null, statement, null);
+
+            // Now handle this exception.
+            throw handle(e);
         } finally {
             RolapUtil.SQL_LOGGER.debug(id + ": " + status);
 
@@ -338,7 +355,7 @@ public class SqlStatement {
             Util.newError(e, locus.message + "; sql=[" + sql + "]");
         try {
             close();
-        } catch (RuntimeException re) {
+        } catch (Throwable t) {
             // ignore
         }
         return runtimeException;

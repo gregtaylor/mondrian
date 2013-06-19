@@ -64,6 +64,7 @@ class MondrianServerImpl
      * construction, and are removed when they call close. Garbage collection
      * may cause a connection to be removed earlier.
      */
+    @SuppressWarnings("unchecked")
     private final Map<Integer, RolapConnection> connectionMap =
          // We use a reference map here because the value
          // is what needs to be week, not the key, as it
@@ -75,6 +76,7 @@ class MondrianServerImpl
      * construction, and are removed when they call close. Garbage collection
      * may cause a connection to be removed earlier.
      */
+    @SuppressWarnings("unchecked")
     private final Map<Long, Statement> statementMap =
          // We use a reference map here because the value
          // is what needs to be week, not the key, as it

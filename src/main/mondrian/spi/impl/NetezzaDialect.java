@@ -9,8 +9,6 @@
 */
 package mondrian.spi.impl;
 
-import mondrian.olap.Util;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -25,18 +23,12 @@ public class NetezzaDialect extends PostgreSqlDialect {
     public static final JdbcDialectFactory FACTORY =
         new JdbcDialectFactory(
             NetezzaDialect.class,
-            // While we're choosing dialects, this still looks like a Postgres
-            // connection.
-            DatabaseProduct.POSTGRESQL)
+            // Netezza behaves the same as PostGres but doesn't use the
+            // postgres driver, so we setup the factory to NETEZZA.
+            DatabaseProduct.NETEZZA)
         {
             protected boolean acceptsConnection(Connection connection) {
-                try {
-                    return super.acceptsConnection(connection)
-                       && isNetezza(connection.getMetaData());
-                } catch (SQLException e) {
-                    throw Util.newError(
-                        e, "Error while instantiating dialect");
-                }
+                return isDatabase(DatabaseProduct.NETEZZA, connection);
             }
         };
 
