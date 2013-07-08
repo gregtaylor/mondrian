@@ -300,9 +300,12 @@ fullname
       formatString="#,###.00"/>
   <Measure name="Sales Count" column="product_id" aggregator="count"
       formatString="#,###"/>
+  <Measure name="Mohsin Test" column="mohsin_test" aggregator="sum" formatString="#,###.00"/>
+
   <Measure name="Customer Count" column="customer_id"
       aggregator="distinct-count" formatString="#,###"/>
   <Measure name="Promotion Sales" aggregator="sum" formatString="#,###.00">
+
     <MeasureExpression>
       <SQL dialect="access">
 Iif("sales_fact_1997"."promotion_id" = 0, 0, "sales_fact_1997"."store_sales")
@@ -343,6 +346,12 @@ Iif("sales_fact_1997"."promotion_id" = 0, 0, "sales_fact_1997"."store_sales")
     </MeasureExpression>
   </Measure>
   <CalculatedMember
+      name="Mohsin Test2"
+      dimension="Measures">
+    <Formula>[Measures].[Store Sales] + [Measures].[Mohsin Test]</Formula>
+    <CalculatedMemberProperty name="FORMAT_STRING" value="$#,##0.00"/>
+  </CalculatedMember>
+  <CalculatedMember
       name="Profit"
       dimension="Measures">
     <Formula>[Measures].[Store Sales] - [Measures].[Store Cost]</Formula>
@@ -364,6 +373,7 @@ Iif("sales_fact_1997"."promotion_id" = 0, 0, "sales_fact_1997"."store_sales")
       caption="Gewinn-Wachstum">
     <CalculatedMemberProperty name="FORMAT_STRING" value="0.0%"/>
   </CalculatedMember>
+  
 </Cube>
 
 <Cube name="Warehouse">

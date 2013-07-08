@@ -53,6 +53,10 @@ class DenseObjectSegmentDataset extends DenseSegmentDataset {
 
     public Object getObject(CellKey key) {
         int offset = key.getOffset(axisMultipliers);
+        if (values == null || offset >= values.length) {
+            return null;
+        }
+
         return values[offset];
     }
 
